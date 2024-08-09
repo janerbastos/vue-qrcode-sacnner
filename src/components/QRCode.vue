@@ -1,24 +1,55 @@
 <template>
-    <qrcode-stream @detect="onDetect" :track="paintOutline"></qrcode-stream>
+    <div class="w-96 h-96 m-auto">
+        <div>{{ result }}</div>
+        <qrcode-stream 
+            :paused="paused"
+            :track="paintBoundingBox"
+            @detect="onDetect"
+            @camera-on="onCameraOn"
+            @camera-off="onCameraOff"
+            @error="onError"
+        >
+            <div
+                v-show="showScanConfirmation"
+                class="scan-confirmation"
+            >
+                <img
+                    src="@/assets/checkmark.svg"
+                    alt="Checkmark"
+                    width="128">
+                </div>
+        </qrcode-stream>
+        <div v-show="paused">
+            <h1 class="text-3xl font-bold underline">
+                Autorizado
+            </h1>
+        </div>
+    </div>
 </template>
 
 <script setup>
-    import {ref} from 'vue'
-    import { QrcodeStream  } from "vue3-qrcode-reader";
+    import {ref, inject} from 'vue'
+    import { QrcodeStream  } from "vue-qrcode-reader";
     
+    const axios = inject('axios')
     const result = ref('')
+    const paused = ref(false)
+    const showScanConfirmation = ref(false)
+    const BASE_URL = import.meta.env.VITE_API_URL
 
     const onDetect = async (detectedCodes) => {
-        result.value = await detectedCodes
-            .then( r => {
-                // console.log(r.content)
-                return r.content
-            })
-        // result.value = JSON.stringify(
-        //     await detectedCodes.rawValue
-        // )
-        // console.log(result.value)
-        // console.log(result.value)
+      const tmp = detectedCodes.map((code) => code.rawValue)
+      await axios.get(`${BASE_URL}/pessoa/v1/pessoas/${tmp[0]}`)
+        .then( response => {
+            result.value = response.data.nome
+        })
+        .catch( err => {
+            console.log(err.message)
+        })
+
+      paused.value = true
+      await timeout(800)
+      paused.value = false
     }
 
     const paintOutline = (decodeData, ctx) => {
@@ -59,4 +90,46 @@
         ctx.closePath()
         ctx.stroke()
     }
+
+    const paintBoundingBox = (detectedCodes, ctx) => {
+        for (const detectedCode of detectedCodes) {
+            const {
+                boundingBox: { x, y, width, height }
+            } = detectedCode
+
+            ctx.lineWidth = 4
+            ctx.strokeStyle = '#007bff'
+            ctx.strokeRect(x, y, width, height)
+        }
+    }
+
+    const onError = (error) => console.error
+
+    const onCameraOn = () => {
+        showScanConfirmation.value = false
+    }
+
+    const onCameraOff = () => {
+        showScanConfirmation.value = true
+    }
+
+    const timeout = (ms) => {
+      return new Promise((resolve) => {
+        setTimeout(resolve, ms)
+      })
+    }
 </script>
+
+<style scoped>
+    .scan-confirmation {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+
+        background-color: rgba(255, 255, 255, 0.8);
+
+        display: flex;
+        flex-flow: row nowrap;
+        justify-content: center;
+    }
+</style>
