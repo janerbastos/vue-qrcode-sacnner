@@ -37,11 +37,24 @@
     const showScanConfirmation = ref(false)
     const BASE_URL = import.meta.env.VITE_API_URL
 
+    const liberaCatraca = () => {
+        axios.get("http://10.1.1.95:9000/liberacatraca")
+        .then( response => {
+            console.log('CATRACA LIBERARADA')
+        })
+        .catch( err => {
+            console.log('ERRO AO LIBERAR CATRACA')
+            console.log(err.message)
+        }) 
+    }
+
     const onDetect = async (detectedCodes) => {
       const tmp = detectedCodes.map((code) => code.rawValue)
       await axios.get(`${BASE_URL}/pessoa/v1/pessoas/${tmp[0]}`)
         .then( response => {
-            result.value = response.data.nome
+            liberaCatraca()
+            const first_name = response.data.nome.split(" ")
+            result.value = first_name[0]
         })
         .catch( err => {
             console.log(err.message)
@@ -50,6 +63,7 @@
       paused.value = true
       await timeout(800)
       paused.value = false
+      result.value = ''
     }
 
     const paintOutline = (decodeData, ctx) => {
